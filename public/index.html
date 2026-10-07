@@ -68,8 +68,13 @@
           applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY)
         });
 
-        // Supabase users 테이블에 push_token 저장
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/users?id=eq.${userId}`, {
+// Supabase users 테이블에 push_token 저장
+        const cleanId = (userId || '').trim();
+        const filter = cleanId.includes('@') 
+          ? `email=eq.${encodeURIComponent(cleanId.toLowerCase())}` 
+          : `id=eq.${cleanId}`;
+
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/users?${filter}`, {
           method: 'PATCH',
           headers: {
             'apikey': SUPABASE_ANON_KEY,
