@@ -1,0 +1,8 @@
+{
+  "name": "Daily Buddy",
+  "short_name": "DailyBuddy",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4F46E5"
+}
