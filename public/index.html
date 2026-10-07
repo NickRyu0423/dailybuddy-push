@@ -59,9 +59,19 @@
         const reg = await navigator.serviceWorker.register('/sw.js');
         const perm = await Notification.requestPermission();
         if (perm !== 'granted') {
-          alert("Notification permission was denied.");
+          contentDiv.innerHTML = `
+            <div class="guide" style="background: #FEF2F2; color: #991B1B; border: 1px solid #FCA5A5;">
+              <b>⚠️ Notification Permission Blocked</b><br><br>
+              To receive match updates, please unblock notifications:<br><br>
+              1. Tap the <b>lock icon (🔒)</b> or <b>three dots (⋮)</b> in the top address bar.<br>
+              2. Go to <b>Permissions / Site settings → Notifications</b>.<br>
+              3. Set it to <b>Allow</b> and tap the reload button below.
+            </div>
+            <button onclick="location.reload()" style="background: #DC2626; margin-top: 15px;">Reload Page</button>
+          `;
           return;
         }
+
 
         const sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
