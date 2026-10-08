@@ -3,16 +3,30 @@ self.addEventListener('push', function(event) {
   const title = data.title || 'Daily Buddy';
   const options = {
     body: data.body || 'You have a new notification.',
-    icon: 'https://buddy.glideos.app/favicon.ico',
-    badge: 'https://buddy.glideos.app/favicon.ico',
-    data: { url: data.url || 'https://buddy.glideos.app' }
+    icon: 'https://daily-buddy.glideos.app/favicon.ico',
+    badge: 'https://daily-buddy.glideos.app/favicon.ico',
+    data: { url: data.url || 'https://daily-buddy.glideos.app' }
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
+  const targetUrl = event.notification.data?.url || 'https://daily-buddy.glideos.app';
+
   event.waitUntil(
-    clients.openWindow(event.notification.data.url)
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+      // 이미 글라이드 창이 열려있다면 새로 띄우지 않고 해당 창으로 이동
+      for (let i = 0; i < clientList.length; i++) {
+        let client = clientList[i];
+        if (client.url.includes('daily-buddy') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // 창이 닫혀있다면 새 창으로 열기
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
   );
 });
