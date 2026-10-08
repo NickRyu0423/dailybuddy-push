@@ -45,7 +45,7 @@ module.exports = async (req, res) => {
 
 async function sendToUser(userId, title, body) {
   // 1. is_push_enabled 컬럼도 함께 조회
-  const { data: user } = await supabase.from('users').select('push_token, has_push_enabled').eq('id', userId).single();
+  const { data: user } = await supabase.from('users').select('push_token, has_enabled_push').eq('id', userId).single();
 
   // 2. 토큰이 있고, 알림 설정이 꺼져 있지 않은(false가 아닌) 유저에게만 발송
   if (user && user.push_token && user.is_push_enabled !== false) {
