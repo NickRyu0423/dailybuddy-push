@@ -28,31 +28,39 @@
     const VAPID_PUBLIC_KEY = "BOkquNCkgqXUwWojEDf8uUDKA7MbQtas5BytvOHi5QFnpcvWPZhM0ZdlJ9cMt8Rk6UcS1rFLJypffHcmZZzPzcM";
 
     const urlParams = new URLSearchParams(window.location.search);
-    const userId = urlParams.get('user_id');
+    const paramUserId = urlParams.get('user_id');
+
+    // 1. URL에 user_id가 있으면 브라우저에 즉시 저장
+    if (paramUserId) {
+      localStorage.setItem('daily_buddy_user_id', paramUserId.trim());
+    }
+
+    // 2. URL 파라미터가 날아가도 로컬스토리지에서 복구
+    const userId = paramUserId || localStorage.getItem('daily_buddy_user_id');
+
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
 
     const contentDiv = document.getElementById('content');
 
     if (isIOS && !isStandalone) {
-      // 아이폰 사파리 유저를 위한 홈 화면 추가 영문 가이드
+      // 아이폰 사파리에서 열었을 때 안내
       contentDiv.innerHTML = `
         <div class="guide">
-          <b>📱 iPhone Setup Required:</b><br><br>
-          1. Tap the <b>Share button (Square with ↑)</b> at the bottom.<br>
-          2. Scroll down and tap <b>[Add to Home Screen]</b>.<br>
-          3. Open the newly added icon from your home screen to enable notifications.
+          <b>📱 iPhone 2단계 설정 안내:</b><br><br>
+          <b>[1단계]</b> 하단 공유 버튼(네모 속 화살표 ↑)을 누르고 <b>[홈 화면에 추가]</b>를 누르세요.<br><br>
+          <b>[2단계]</b> 홈 화면에 생긴 <b>Daily Buddy 아이콘</b>을 눌러 다시 열고 알림 허용을 완료하세요!
         </div>
       `;
     } else {
-      // 안드로이드 또는 PWA 실행 상태
+      // 안드로이드 또는 아이폰 PWA(홈 화면 아이콘)로 열었을 때
       contentDiv.innerHTML = `<button id="btn-allow">Enable Notifications</button>`;
       document.getElementById('btn-allow').addEventListener('click', setupPush);
     }
 
     async function setupPush() {
       if (!userId) {
-        alert("User session not found. Please access this page from the Daily Buddy app.");
+        alert("User session not found. Please open this page from the Daily Buddy app.");
         return;
       }
       try {
@@ -62,23 +70,19 @@
           contentDiv.innerHTML = `
             <div class="guide" style="background: #FEF2F2; color: #991B1B; border: 1px solid #FCA5A5;">
               <b>⚠️ Notification Permission Blocked</b><br><br>
-              To receive match updates, please unblock notifications:<br><br>
-              1. Tap the <b>lock icon (🔒)</b> or <b>three dots (⋮)</b> in the top address bar.<br>
-              2. Go to <b>Permissions / Site settings → Notifications</b>.<br>
-              3. Set it to <b>Allow</b> and tap the reload button below.
+              브라우저 설정에서 알림 권한을 '허용'으로 변경한 후 페이지를 새로고침해 주세요.
             </div>
             <button onclick="location.reload()" style="background: #DC2626; margin-top: 15px;">Reload Page</button>
           `;
           return;
         }
 
-
         const sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY)
         });
 
-// Supabase users 테이블에 push_token 저장
+        // Supabase users 테이블에 push_token 저장
         const cleanId = (userId || '').trim();
         const filter = cleanId.includes('@') 
           ? `email=eq.${encodeURIComponent(cleanId.toLowerCase())}` 
