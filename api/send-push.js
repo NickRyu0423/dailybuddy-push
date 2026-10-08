@@ -50,7 +50,7 @@ async function sendToUser(userId, title, body) {
       await webpush.sendNotification(user.push_token, JSON.stringify({
         title,
         body,
-        url: 'https://buddy.glideos.app'
+        url: 'https://daily-buddy.glideos.app'
       }));
     } catch (e) {
       console.error(`Push notification failed for User ID ${userId}:`, e);
