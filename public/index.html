@@ -96,7 +96,10 @@
             'Content-Type': 'application/json',
             'Prefer': 'return=minimal'
           },
-          body: JSON.stringify({ push_token: sub })
+         body: JSON.stringify({ 
+  push_token: sub,
+  is_push_enabled: true 
+})
         });
 
         if (res.ok) {
