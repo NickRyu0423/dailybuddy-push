@@ -128,20 +128,22 @@
             'Content-Type': 'application/json',
             'Prefer': 'return=minimal'
           },
-          body: JSON.stringify({ 
-            push_token: sub,
-            has_push_enabled: true 
-          })
-        });
+        body: JSON.stringify({ 
+          push_token: sub,
+          has_enabled_push: true 
+        })
+      });
 
-        if (res.ok) {
-          document.getElementById('app').innerHTML = `
-            <h3>✅ All Set!</h3>
-            <p>Notifications are now enabled.<br>You can close this app and return to Daily Buddy.</p>
-          `;
-        } else {
-          throw new Error("Failed to save notification token.");
-        }
+      if (res.ok) {
+        document.getElementById('app').innerHTML = `
+          <h3>✅ All Set!</h3>
+          <p>Notifications are now enabled.<br>You can close this app and return to Daily Buddy.</p>
+        `;
+      } else {
+        const errDetail = await res.text();
+        throw new Error(`DB 저장 실패 (${res.status}): ${errDetail}`);
+      }
+
       } catch (err) {
         alert("Failed to enable notifications: " + err.message);
         btn.innerText = "Enable Notifications";
