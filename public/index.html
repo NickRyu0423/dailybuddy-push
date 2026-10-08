@@ -10,6 +10,8 @@
     .card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); max-width: 360px; width: 100%; }
     h2 { margin-top: 0; color: #1e293b; font-size: 22px; }
     p { color: #64748b; font-size: 14px; line-height: 1.5; }
+    input { width: 100%; padding: 12px 14px; border: 1.5px solid #CBD5E1; border-radius: 10px; font-size: 15px; box-sizing: border-box; margin-top: 15px; outline: none; transition: border 0.2s; }
+    input:focus { border-color: #4F46E5; }
     button { background: #4F46E5; color: white; border: none; padding: 14px 24px; border-radius: 10px; font-size: 16px; font-weight: 600; width: 100%; cursor: pointer; margin-top: 15px; }
     button:active { background: #4338CA; }
     .guide { text-align: left; background: #EEF2FF; padding: 16px; border-radius: 12px; font-size: 13px; line-height: 1.6; color: #3730A3; }
@@ -30,13 +32,11 @@
     const urlParams = new URLSearchParams(window.location.search);
     const paramUserId = urlParams.get('user_id');
 
-    // 1. URL에 user_id가 있으면 브라우저에 즉시 저장
     if (paramUserId) {
       localStorage.setItem('daily_buddy_user_id', paramUserId.trim());
     }
 
-    // 2. URL 파라미터가 날아가도 로컬스토리지에서 복구
-    const userId = paramUserId || localStorage.getItem('daily_buddy_user_id');
+    let userId = paramUserId || localStorage.getItem('daily_buddy_user_id');
 
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
@@ -44,7 +44,7 @@
     const contentDiv = document.getElementById('content');
 
     if (isIOS && !isStandalone) {
-      // 아이폰 사파리에서 열었을 때 안내
+      // 1. 아이폰 사파리 브라우저 상태
       contentDiv.innerHTML = `
         <div class="guide">
           <b>📱 iPhone 2단계 설정 안내:</b><br><br>
@@ -53,16 +53,48 @@
         </div>
       `;
     } else {
-      // 안드로이드 또는 아이폰 PWA(홈 화면 아이콘)로 열었을 때
-      contentDiv.innerHTML = `<button id="btn-allow">Enable Notifications</button>`;
+      // 2. 홈 화면 앱(PWA) 또는 안드로이드 상태
+      renderSetupForm();
+    }
+
+    function renderSetupForm() {
+      // userId가 없는 경우 이메일 입력창을 함께 제공
+      if (!userId) {
+        contentDiv.innerHTML = `
+          <p style="font-size: 13px; color: #475569; margin-bottom: 5px; text-align: left;">
+            Enter your SolBridge / Daily Buddy email:
+          </p>
+          <input type="email" id="email-input" placeholder="e.g. name@solbridge.ac.kr" />
+          <button id="btn-allow">Enable Notifications</button>
+        `;
+      } else {
+        contentDiv.innerHTML = `<button id="btn-allow">Enable Notifications</button>`;
+      }
       document.getElementById('btn-allow').addEventListener('click', setupPush);
     }
 
     async function setupPush() {
-      if (!userId) {
-        alert("User session not found. Please open this page from the Daily Buddy app.");
+      let targetId = userId;
+      const emailInput = document.getElementById('email-input');
+      if (emailInput) {
+        targetId = emailInput.value.trim();
+        if (!targetId) {
+          alert("Please enter your email to enable notifications.");
+          return;
+        }
+        localStorage.setItem('daily_buddy_user_id', targetId);
+        userId = targetId;
+      }
+
+      if (!targetId) {
+        alert("User session not found. Please access this page from the Daily Buddy app.");
         return;
       }
+
+      const btn = document.getElementById('btn-allow');
+      btn.innerText = "Setting up...";
+      btn.disabled = true;
+
       try {
         const reg = await navigator.serviceWorker.register('/sw.js');
         const perm = await Notification.requestPermission();
@@ -70,7 +102,7 @@
           contentDiv.innerHTML = `
             <div class="guide" style="background: #FEF2F2; color: #991B1B; border: 1px solid #FCA5A5;">
               <b>⚠️ Notification Permission Blocked</b><br><br>
-              브라우저 설정에서 알림 권한을 '허용'으로 변경한 후 페이지를 새로고침해 주세요.
+              iPhone [설정] → [알림] → [Daily Buddy]에서 알림을 허용한 후 다시 시도해 주세요.
             </div>
             <button onclick="location.reload()" style="background: #DC2626; margin-top: 15px;">Reload Page</button>
           `;
@@ -82,8 +114,8 @@
           applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY)
         });
 
-        // Supabase users 테이블에 push_token 저장
-        const cleanId = (userId || '').trim();
+        // Supabase users 테이블에 push_token 및 is_push_enabled 저장
+        const cleanId = targetId.trim();
         const filter = cleanId.includes('@') 
           ? `email=eq.${encodeURIComponent(cleanId.toLowerCase())}` 
           : `id=eq.${cleanId}`;
@@ -96,22 +128,24 @@
             'Content-Type': 'application/json',
             'Prefer': 'return=minimal'
           },
-         body: JSON.stringify({ 
-  push_token: sub,
-  is_push_enabled: true 
-})
+          body: JSON.stringify({ 
+            push_token: sub,
+            is_push_enabled: true 
+          })
         });
 
         if (res.ok) {
           document.getElementById('app').innerHTML = `
             <h3>✅ All Set!</h3>
-            <p>Notifications are now enabled.<br>You can close this tab and return to Daily Buddy.</p>
+            <p>Notifications are now enabled.<br>You can close this app and return to Daily Buddy.</p>
           `;
         } else {
           throw new Error("Failed to save notification token.");
         }
       } catch (err) {
         alert("Failed to enable notifications: " + err.message);
+        btn.innerText = "Enable Notifications";
+        btn.disabled = false;
       }
     }
 
