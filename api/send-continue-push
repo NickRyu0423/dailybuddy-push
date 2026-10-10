@@ -1,0 +1,78 @@
+import { createClient } from '@supabase/supabase-js';
+import webpush from 'web-push';
+
+// VAPID 키 설정
+webpush.setVapidDetails(
+  process.env.VAPID_SUBJECT,
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { match_id, user_id } = req.body;
+
+    if (!match_id || !user_id) {
+      return res.status(400).json({ error: 'Missing match_id or user_id' });
+    }
+
+    // 1. 현재 매칭 정보 조회
+    const { data: match, error: matchError } = await supabase
+      .from('matches')
+      .select('*')
+      .eq('id', match_id)
+      .single();
+
+    if (matchError || !match) {
+      return res.status(404).json({ error: 'Match not found' });
+    }
+
+    // 2. 상대방(파트너) ID 식별
+    const partnerId = (match.user1_id === user_id) ? match.user2_id : match.user1_id;
+
+    if (!partnerId) {
+      return res.status(400).json({ error: 'Partner not found' });
+    }
+
+    // 3. 파트너의 푸시 토큰 및 알림 활성화 여부 확인
+    const { data: partner, error: partnerError } = await supabase
+      .from('users')
+      .select('push_token, has_enabled_push')
+      .eq('id', partnerId)
+      .single();
+
+    if (partnerError || !partner || !partner.push_token || partner.has_enabled_push === false) {
+      return res.status(200).json({ success: true, message: 'Partner has no push token or disabled push' });
+    }
+
+    // 4. 푸시 구독 정보 파싱 (문자열인 경우 객체로 변환)
+    const pushSubscription = typeof partner.push_token === 'string' 
+      ? JSON.parse(partner.push_token) 
+      : partner.push_token;
+
+    // 5. 영문 푸시 알림 페이로드 구성
+    const payload = JSON.stringify({
+      title: '👀 Your buddy pressed Continue!',
+      body: 'Your partner wants to keep chatting tomorrow. Check out the app!',
+      url: '/'
+    });
+
+    // 6. 웹 푸시 발송
+    await webpush.sendNotification(pushSubscription, payload);
+
+    return res.status(200).json({ success: true, message: 'Continue push sent successfully' });
+
+  } catch (error) {
+    console.error('Error sending continue push:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
