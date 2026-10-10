@@ -1,3 +1,11 @@
+// 새 서비스 워커가 다운로드되면 즉시 대기 상태를 건너뛰고 활성화되도록 설정
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
 self.addEventListener('push', function(event) {
   const data = event.data ? event.data.json() : {};
   const title = data.title || 'Daily Buddy';
